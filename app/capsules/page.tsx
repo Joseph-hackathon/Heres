@@ -2320,7 +2320,7 @@ export default function CapsulesPage() {
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs transition-colors"
                                 >
-                                  View on Solscan
+                                  Solscan
                                   <ExternalLink className="w-3 h-3" />
                                 </a>
                                 <a
@@ -2329,7 +2329,7 @@ export default function CapsulesPage() {
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs transition-colors"
                                 >
-                                  View on Orb Markets
+                                  Orb Markets
                                   <ExternalLink className="w-3 h-3" />
                                 </a>
                               </>
@@ -2364,21 +2364,21 @@ export default function CapsulesPage() {
                             </div>
                             <div className="flex flex-wrap gap-2">
                               <a
-                                href={getOrbMarketsUrl(walletActivity.lastSignature)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs transition-colors"
-                              >
-                                View on Orb Markets
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                              <a
                                 href={getSolscanUrl(walletActivity.lastSignature)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs transition-colors"
                               >
-                                View on Solscan
+                                Solscan
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                              <a
+                                href={getOrbMarketsUrl(walletActivity.lastSignature)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs transition-colors"
+                              >
+                                Orb Markets
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             </div>
