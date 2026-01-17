@@ -2523,7 +2523,11 @@ export default function CapsulesPage() {
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-slate-400">Status:</span>
                           <span className={tx.err ? 'text-red-400' : 'text-green-400'}>
-                            {tx.err ? 'Failed' : 'Success'}
+                            {tx.err 
+                              ? 'Failed' 
+                              : tx.type === 'execution' 
+                                ? 'Executed' 
+                                : 'Success'}
                           </span>
                         </div>
                         {tx.fee !== undefined && tx.fee !== null && (
