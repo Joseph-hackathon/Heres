@@ -848,9 +848,9 @@ export default function CapsulesPage() {
         // Fall through to Helius RPC
       }
       
-      // Method 2: Fetch ALL transactions from Helius using getTransactionsForAddress RPC method
-      // This new method provides better performance and includes associated token accounts
-      const heliusResult = await getTransactionsForAddress(walletAddress, {
+      // Method 2: Try getTransactionsForAddress RPC method first (requires paid plan)
+      // If not available, fallback to Enhanced Transactions API
+      let heliusResult = await getTransactionsForAddress(walletAddress, {
         transactionDetails: 'full', // Get full transaction data in one call
         sortOrder: 'desc', // Newest first
         limit: 100,
@@ -860,9 +860,50 @@ export default function CapsulesPage() {
         },
       })
       
+      // If getTransactionsForAddress is not available (403 error), fallback to Enhanced Transactions API
+      if (!heliusResult || !heliusResult.data || heliusResult.data.length === 0) {
+        console.log('getTransactionsForAddress not available, falling back to Enhanced Transactions API')
+        const response = await fetch(
+          `${HELIUS_CONFIG.BASE_URL}/addresses/${walletAddress}/transactions?api-key=${SOLANA_CONFIG.HELIUS_API_KEY}&limit=100`
+        )
+        
+        if (response.ok) {
+          let data: any
+          try {
+            data = await response.json()
+          } catch (parseError) {
+            console.error('Error parsing Enhanced Transactions API response:', parseError)
+            return
+          }
+          
+          // Handle different response formats
+          let transactions: any[] = []
+          if (Array.isArray(data)) {
+            transactions = data
+          } else if (data && Array.isArray(data.transactions)) {
+            transactions = data.transactions
+          } else if (data && data.result && Array.isArray(data.result)) {
+            transactions = data.result
+          } else if (data && data.data && Array.isArray(data.data)) {
+            transactions = data.data
+          }
+          
+          if (transactions && transactions.length > 0) {
+            // Convert Enhanced Transactions API format to match getTransactionsForAddress format
+            heliusResult = {
+              data: transactions.map((tx: any) => ({
+                ...tx,
+                signature: tx.signature || tx.transactionSignature || tx.transaction?.signatures?.[0] || '',
+                blockTime: tx.timestamp || tx.blockTime || tx.tx?.blockTime,
+              })),
+            }
+          }
+        }
+      }
+      
       if (heliusResult && heliusResult.data && heliusResult.data.length > 0) {
         const transactions = heliusResult.data
-        console.log('Helius RPC returned transactions:', transactions.length)
+        console.log('Helius returned transactions:', transactions.length)
         
         if (transactions && transactions.length > 0) {
           const programId = SOLANA_CONFIG.PROGRAM_ID
