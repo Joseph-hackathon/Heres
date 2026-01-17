@@ -1,0 +1,520 @@
+{
+  "address": "D6ZiV1bkZ6m27iHUsgsrZKV8WVa7bAHaFhC61CtXc5qA",
+  "metadata": {
+    "name": "lucid_program",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_capsule",
+      "docs": [
+        "Initialize a new Intent Capsule"
+      ],
+      "discriminator": [
+        195,
+        104,
+        42,
+        180,
+        127,
+        169,
+        62,
+        3
+      ],
+      "accounts": [
+        {
+          "name": "capsule",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  99,
+                  97,
+                  112,
+                  115,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "inactivity_period",
+          "type": "i64"
+        },
+        {
+          "name": "intent_data",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "deactivate_capsule",
+      "docs": [
+        "Deactivate a capsule (owner can cancel before execution)"
+      ],
+      "discriminator": [
+        69,
+        57,
+        35,
+        120,
+        13,
+        21,
+        61,
+        1
+      ],
+      "accounts": [
+        {
+          "name": "capsule",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  99,
+                  97,
+                  112,
+                  115,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "execute_intent",
+      "docs": [
+        "Execute the intent when inactivity is proven with ZK proof"
+      ],
+      "discriminator": [
+        53,
+        130,
+        47,
+        154,
+        227,
+        220,
+        122,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "capsule",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  99,
+                  97,
+                  112,
+                  115,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "capsule.owner",
+                "account": "IntentCapsule"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "Owner's account (must be mut and signer for SOL transfers)"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "executor",
+          "docs": [
+            "Executor must be the owner (for SOL transfers, owner must sign)"
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "inactivity_proof",
+          "type": "bytes"
+        },
+        {
+          "name": "proof_public_inputs",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "recreate_capsule",
+      "docs": [
+        "Recreate a capsule from executed state (allows creating new capsule after execution)"
+      ],
+      "discriminator": [
+        178,
+        120,
+        136,
+        142,
+        127,
+        219,
+        159,
+        143
+      ],
+      "accounts": [
+        {
+          "name": "capsule",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  99,
+                  97,
+                  112,
+                  115,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "inactivity_period",
+          "type": "i64"
+        },
+        {
+          "name": "intent_data",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "update_activity",
+      "docs": [
+        "Update last activity timestamp (called by Helius webhook or user)"
+      ],
+      "discriminator": [
+        137,
+        101,
+        27,
+        43,
+        221,
+        52,
+        130,
+        149
+      ],
+      "accounts": [
+        {
+          "name": "capsule",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  99,
+                  97,
+                  112,
+                  115,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_intent",
+      "docs": [
+        "Update the intent data of an existing capsule"
+      ],
+      "discriminator": [
+        214,
+        203,
+        249,
+        158,
+        90,
+        27,
+        54,
+        17
+      ],
+      "accounts": [
+        {
+          "name": "capsule",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  116,
+                  101,
+                  110,
+                  116,
+                  95,
+                  99,
+                  97,
+                  112,
+                  115,
+                  117,
+                  108,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "new_intent_data",
+          "type": "bytes"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "IntentCapsule",
+      "discriminator": [
+        64,
+        226,
+        112,
+        218,
+        172,
+        210,
+        4,
+        113
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "IntentExecuted",
+      "discriminator": [
+        179,
+        47,
+        238,
+        72,
+        52,
+        83,
+        188,
+        227
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Unauthorized: Only the owner can perform this action"
+    },
+    {
+      "code": 6001,
+      "name": "CapsuleInactive",
+      "msg": "Capsule is not active"
+    },
+    {
+      "code": 6002,
+      "name": "CapsuleActive",
+      "msg": "Capsule is active"
+    },
+    {
+      "code": 6003,
+      "name": "CapsuleNotExecuted",
+      "msg": "Capsule has not been executed"
+    },
+    {
+      "code": 6004,
+      "name": "InactivityPeriodNotMet",
+      "msg": "Inactivity period has not been met"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidProof",
+      "msg": "Invalid ZK proof: Proof verification failed"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidIntentData",
+      "msg": "Invalid intent data format"
+    },
+    {
+      "code": 6007,
+      "name": "InvalidBeneficiaryAddress",
+      "msg": "Invalid beneficiary address"
+    }
+  ],
+  "types": [
+    {
+      "name": "IntentCapsule",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "inactivity_period",
+            "type": "i64"
+          },
+          {
+            "name": "last_activity",
+            "type": "i64"
+          },
+          {
+            "name": "intent_data",
+            "type": "bytes"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "executed_at",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "IntentExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "capsule",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "executed_at",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}

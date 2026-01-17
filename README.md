@@ -1,0 +1,416 @@
+# Lucid - Intent Inheritance Protocol on Solana
+
+> **People disappear. Intent should not.**
+
+Lucid is an on-chain Intent Inheritance Protocol built on Solana that allows users to securely record, simulate, and automatically execute their intentions when they are no longer able to act. It ensures that your digital legacy and financial intentions are preserved and executed according to your wishes, even in your absence.
+
+## 🎯 What is Lucid?
+
+Lucid is a decentralized application that solves a critical problem: **what happens to your digital assets and intentions when you can no longer manage them?** Traditional solutions rely on trusted third parties or legal documents that may not be immediately accessible or executable. Lucid leverages blockchain technology to create an immutable, trustless system that automatically executes your intentions based on verifiable inactivity.
+
+### Key Problem Solved
+
+- **Digital Legacy Management**: Ensures your assets and intentions are executed even if you're unable to act
+- **Trustless Execution**: No need for trusted executors or legal intermediaries
+- **Privacy-Preserving**: Uses Zero-Knowledge proofs to verify inactivity without revealing sensitive information
+- **Automatic Distribution**: Executes token transfers to beneficiaries automatically when conditions are met
+
+## 🏗️ System Architecture
+
+Lucid is built with a modern, decentralized architecture that combines frontend web technologies with Solana blockchain smart contracts.
+
+### Technology Stack
+
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Blockchain**: Solana (Devnet)
+- **Smart Contracts**: Anchor Framework (Rust)
+- **Wallet Integration**: Solana Wallet Adapter
+- **RPC Provider**: Helius API
+- **3D Graphics**: Three.js
+- **Zero-Knowledge**: Noir (planned integration)
+
+### Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        A[Next.js App] --> B[Wallet Adapter]
+        A --> C[Helius API Client]
+        A --> D[Anchor Client]
+    end
+    
+    subgraph "Blockchain Layer"
+        D --> E[Solana Program]
+        E --> F[Intent Capsule PDA]
+        E --> G[System Program]
+    end
+    
+    subgraph "External Services"
+        C --> H[Helius RPC]
+        C --> I[Transaction History]
+        B --> J[Wallet Providers]
+    end
+    
+    subgraph "ZK Layer (Future)"
+        E --> K[Noir Verifier]
+        K --> L[Inactivity Proof]
+    end
+    
+    style A fill:#3b82f6
+    style E fill:#14f195
+    style F fill:#9945ff
+    style K fill:#ff6b6b
+```
+
+## 🔄 User Flow
+
+### Complete User Journey
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant W as Wallet
+    participant F as Frontend
+    participant S as Solana Program
+    participant H as Helius API
+    participant Z as ZK Verifier
+
+    Note over U,Z: 1. Capsule Creation Phase
+    U->>W: Connect Wallet
+    W->>F: Wallet Connected
+    U->>F: Enter Intent & Beneficiaries
+    U->>F: Set Inactivity Period
+    F->>S: create_capsule(intent_data, inactivity_period)
+    S->>S: Create PDA Account
+    S-->>F: Transaction Signature
+    F->>F: Store in localStorage
+    
+    Note over U,Z: 2. Monitoring Phase
+    loop Every 5 minutes
+        F->>H: Check Wallet Activity
+        H-->>F: Last Transaction Timestamp
+        F->>F: Calculate Time Since Activity
+        alt Inactivity Period Met
+            F->>Z: Generate ZK Proof
+            Z-->>F: Inactivity Proof
+            F->>S: execute_intent(proof, beneficiaries)
+            S->>S: Verify Proof
+            S->>S: Parse Intent Data
+            loop For Each Beneficiary
+                S->>S: Transfer SOL
+            end
+            S-->>F: Execution Transaction
+            F->>F: Update UI
+        end
+    end
+    
+    Note over U,Z: 3. Execution Phase
+    S->>S: Mark Capsule as Executed
+    S->>S: Distribute SOL to Beneficiaries
+    S-->>F: Execution Confirmed
+    F->>F: Display Execution Status
+```
+
+### Detailed User Flow Diagram
+
+```mermaid
+flowchart TD
+    Start([User Visits Lucid]) --> Connect[Connect Solana Wallet]
+    Connect --> Choice{Choose Action}
+    
+    Choice -->|Create New| CreatePage[Create Memory Capsule Page]
+    Choice -->|View Existing| ViewPage[View My Capsules Page]
+    
+    CreatePage --> EnterIntent[Enter Intent Description]
+    EnterIntent --> AddBeneficiaries[Add Beneficiaries & Amounts]
+    AddBeneficiaries --> SetPeriod[Set Inactivity Period]
+    SetPeriod --> Simulate[Preview Simulation]
+    Simulate --> Confirm{Confirm Creation?}
+    Confirm -->|Yes| CreateTx[Submit create_capsule Transaction]
+    Confirm -->|No| CreatePage
+    CreateTx --> CapsuleCreated[Capsule Created On-Chain]
+    
+    ViewPage --> LoadCapsule[Load Capsule Data]
+    LoadCapsule --> CheckStatus{Capsule Status?}
+    
+    CheckStatus -->|Active| Monitor[Monitor Wallet Activity]
+    CheckStatus -->|Executed| ShowExecuted[Show Execution Details]
+    
+    Monitor --> CheckInactivity{Inactivity Period Met?}
+    CheckInactivity -->|No| Wait[Wait & Continue Monitoring]
+    CheckInactivity -->|Yes| GenerateProof[Generate ZK Proof]
+    
+    GenerateProof --> Execute[Execute Intent]
+    Execute --> VerifyProof[Verify ZK Proof On-Chain]
+    VerifyProof --> Distribute[Distribute SOL to Beneficiaries]
+    Distribute --> MarkExecuted[Mark Capsule as Executed]
+    MarkExecuted --> ShowExecuted
+    
+    Wait --> Monitor
+    
+    CapsuleCreated --> ViewPage
+    ShowExecuted --> End([End])
+    
+    style Start fill:#3b82f6
+    style CreateTx fill:#14f195
+    style Execute fill:#9945ff
+    style Distribute fill:#ff6b6b
+    style End fill:#64748b
+```
+
+## 🚀 How It Works
+
+### 1. Capsule Creation
+
+Users create an "Intent Capsule" that contains:
+- **Intent Description**: Natural language description of what should happen
+- **Beneficiaries**: List of wallet addresses and their allocated amounts (fixed SOL or percentage)
+- **Inactivity Period**: Time in seconds after which the capsule should execute if no activity is detected
+- **Total Amount**: Total SOL to be distributed
+
+The capsule is stored on-chain as a Program Derived Address (PDA), ensuring immutability and decentralization.
+
+### 2. Activity Monitoring
+
+The system continuously monitors wallet activity using:
+- **Helius API**: Fetches transaction history and wallet activity
+- **Periodic Checks**: Frontend checks every 5 minutes for inactivity
+- **Activity Tracking**: Updates last activity timestamp on-chain when user performs transactions
+
+### 3. Automatic Execution
+
+When the inactivity period is met:
+1. **ZK Proof Generation**: A Zero-Knowledge proof is generated to verify inactivity (currently using a development-mode proof)
+2. **Proof Verification**: The Solana program verifies the proof on-chain
+3. **Intent Parsing**: The program parses the JSON intent data to extract beneficiaries and amounts
+4. **Token Distribution**: SOL is automatically transferred to each beneficiary according to their allocation
+5. **Capsule Deactivation**: The capsule is marked as executed and deactivated
+
+### 4. Post-Execution
+
+After execution:
+- Users can view execution transaction details
+- Execution status is displayed in the UI
+- Users can create a new capsule if needed (using `recreate_capsule`)
+
+## 📋 Core Features
+
+### Smart Contract Functions
+
+1. **`create_capsule`**: Initialize a new Intent Capsule with intent data and inactivity period
+2. **`update_intent`**: Modify the intent data of an active capsule
+3. **`execute_intent`**: Execute the capsule when inactivity is proven (with ZK proof verification and SOL distribution)
+4. **`update_activity`**: Update the last activity timestamp (can be called by Helius webhook or user)
+5. **`deactivate_capsule`**: Manually deactivate a capsule
+6. **`recreate_capsule`**: Create a new capsule from an executed state
+
+### Frontend Features
+
+- **3D Animated Background**: Immersive Three.js-based background
+- **Material Design**: Modern UI with Material Design principles
+- **Real-time Monitoring**: Live wallet activity tracking
+- **Transaction History**: Display of all capsule-related transactions
+- **Execution Simulation**: Preview what happens when a capsule executes
+- **Auto-execution**: Automatic execution when conditions are met
+
+## 🛠️ How It's Built
+
+### Smart Contract (Rust/Anchor)
+
+The Solana program is built using the Anchor framework and implements:
+
+- **PDA-based Storage**: Each user has a unique capsule stored as a Program Derived Address
+- **JSON Intent Parsing**: Intent data is stored as JSON and parsed on-chain using `serde_json`
+- **SOL Distribution**: Uses `system_program::transfer` for automatic token distribution
+- **ZK Proof Verification**: Verifies Noir ZK proofs for inactivity (development mode currently)
+- **Security**: Owner-only execution, proper access controls, and input validation
+
+### Frontend (Next.js/React)
+
+The web application provides:
+
+- **Wallet Integration**: Seamless Solana wallet connection via Wallet Adapter
+- **Real-time Updates**: Automatic UI updates when transactions occur
+- **Activity Monitoring**: Periodic checks for inactivity using Helius API
+- **Transaction Management**: Stores and retrieves transaction signatures from localStorage
+- **3D Visualizations**: Three.js for immersive user experience
+
+### Integration Points
+
+- **Helius API**: Wallet activity monitoring and transaction history
+- **Solana RPC**: Direct blockchain interaction via Helius RPC endpoint
+- **Noir ZK**: Zero-Knowledge proof generation (development mode, production verifier planned)
+
+## 📁 Project Structure
+
+```
+Lucid/
+├── app/                    # Next.js application
+│   ├── create/            # Capsule creation page
+│   ├── capsules/         # Capsule viewing/management page
+│   ├── page.tsx          # Landing page
+│   └── providers.tsx     # Solana wallet provider
+├── components/            # React components
+│   ├── Hero3D.tsx       # 3D animated background
+│   └── WorkflowDemo.tsx  # Interactive workflow demonstration
+├── config/               # Configuration files
+│   └── solana.ts        # Solana connection utilities
+├── constants/            # Application constants
+│   └── index.ts         # Program ID, API keys, etc.
+├── lib/                  # Core libraries
+│   ├── solana.ts        # Solana program interactions
+│   ├── helius.ts        # Helius API integration
+│   └── program.ts       # Program utilities (PDA derivation)
+├── lucid_program/        # Solana smart contract
+│   └── programs/
+│       └── lucid_program/
+│           └── src/
+│               └── lib.rs # Main program logic
+├── types/                # TypeScript type definitions
+│   └── index.ts         # IntentCapsule, Beneficiary types
+├── utils/                # Utility functions
+│   ├── intent.ts        # Intent encoding/decoding
+│   └── validation.ts    # Input validation
+└── idl/                  # Anchor IDL files
+    └── lucid_program.json
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Solana wallet (Phantom, Backpack, etc.)
+- Rust, Solana CLI, and Anchor (for contract development)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd lucid
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment variables**
+   
+   Create a `.env.local` file:
+   ```env
+   NEXT_PUBLIC_SOLANA_NETWORK=devnet
+   NEXT_PUBLIC_HELIUS_API_KEY=your_helius_api_key
+   NEXT_PUBLIC_PROGRAM_ID=D6ZiV1bkZ6m27iHUsgsrZKV8WVa7bAHaFhC61CtXc5qA
+   ```
+
+4. **Run the development server**
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## 📦 Smart Contract Deployment
+
+### Prerequisites
+
+- Rust (for Anchor framework)
+- Solana CLI
+- Anchor Framework
+
+### Manual Deployment
+
+```bash
+cd lucid_program
+
+# Configure for devnet
+solana config set --url devnet
+
+# Check balance and request airdrop if needed
+solana balance
+solana airdrop 2
+
+# Clean previous build
+anchor clean
+
+# Build the program
+anchor build
+
+# Deploy to devnet
+anchor deploy
+
+# Update IDL file
+cp target/idl/lucid_program.json ../idl/lucid_program.json
+
+# Verify Program ID
+solana address -k target/deploy/lucid_program-keypair.json
+```
+
+### Automated Deployment (Optional)
+
+```bash
+bash deploy-full.sh
+```
+
+This script automatically installs Rust, Solana CLI, Anchor, and deploys the contract.
+
+## 🔐 Security Considerations
+
+- **Private Keys**: Never commit private keys or seed phrases to version control
+- **Environment Variables**: Keep API keys and sensitive data in `.env.local` (already in `.gitignore`)
+- **ZK Proofs**: Currently using development-mode proofs; production should use verified Noir verifier
+- **Access Control**: Only capsule owners can execute their capsules
+- **Input Validation**: All user inputs are validated before on-chain submission
+
+## 🔮 Future Enhancements
+
+- **Production ZK Verifier**: Integrate full Noir ZK proof verification
+- **Multi-token Support**: Extend beyond SOL to support SPL tokens
+- **Guardian System**: Multi-signature execution with trusted guardians
+- **Event-based Triggers**: Support for event-based execution conditions
+- **Social Recovery**: Social network-based recovery mechanisms
+
+## 📚 API Reference
+
+### Smart Contract Instructions
+
+| Instruction | Description | Accounts |
+|------------|-------------|----------|
+| `create_capsule` | Initialize a new Intent Capsule | capsule (PDA), owner, system_program |
+| `update_intent` | Update intent data | capsule, owner |
+| `execute_intent` | Execute capsule with ZK proof | capsule, owner, executor, system_program, beneficiaries* |
+| `update_activity` | Update last activity timestamp | capsule, owner |
+| `deactivate_capsule` | Manually deactivate capsule | capsule, owner |
+| `recreate_capsule` | Create new capsule from executed state | capsule, owner |
+
+*Beneficiaries are passed as `remaining_accounts`
+
+### Frontend Functions
+
+- `createCapsule(wallet, inactivityPeriod, intentData)`: Create a new capsule
+- `executeIntent(wallet, owner, proof, publicInputs, beneficiaries)`: Execute a capsule
+- `getCapsule(owner)`: Fetch capsule data
+- `recreateCapsule(wallet, inactivityPeriod, intentData)`: Recreate from executed state
+- `getWalletActivity(wallet)`: Get wallet activity from Helius API
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+MIT License
+
+## 🔗 Resources
+
+- [Solana Documentation](https://docs.solana.com/)
+- [Anchor Framework](https://www.anchor-lang.com/)
+- [Helius API](https://docs.helius.dev/)
+- [Solana Wallet Adapter](https://github.com/solana-labs/wallet-adapter)
+- [Noir ZK](https://noir-lang.org/)
+
+---
+
+**Built with ❤️ on Solana**
