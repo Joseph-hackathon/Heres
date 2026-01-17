@@ -110,28 +110,32 @@ export default function CapsulesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capsule, publicKey, wallet, isExecuting])
 
-  // Update walletActivity when transactions are loaded, but prioritize Helius RPC data
-  // This effect only updates if walletActivity is not already set from Helius RPC
+  // Update walletActivity when transactions are loaded
+  // Always use transactions list as the source of truth for wallet activity
   useEffect(() => {
-    if (transactions.length > 0 && publicKey && (!walletActivity || walletActivity.transactionCount === 0)) {
-      // Get the most recent transaction (first in sorted array)
+    if (transactions.length > 0 && publicKey) {
+      // Get the most recent transaction (first in sorted array, newest first)
       const firstTx = transactions[0]
       if (firstTx.signature && firstTx.signature !== 'unknown') {
-        // Update walletActivity with transaction data as fallback
+        // Update walletActivity with transaction data
         const updatedActivity = {
           wallet: publicKey.toString(),
           lastSignature: firstTx.signature,
           lastActivityTimestamp: firstTx.timestamp ? firstTx.timestamp * 1000 : 0,
           transactionCount: transactions.length,
         }
-        setWalletActivity((prev: any) => {
-          // Only update if we don't have better data from Helius
-          if (!prev || prev.transactionCount === 0) {
-            return updatedActivity
-          }
-          return prev
+        // Always update to reflect the most current transaction data
+        setWalletActivity(updatedActivity)
+        console.log('Updated walletActivity from transactions:', {
+          transactionCount: updatedActivity.transactionCount,
+          lastSignature: updatedActivity.lastSignature.substring(0, 8) + '...',
+          lastActivity: new Date(updatedActivity.lastActivityTimestamp).toLocaleString()
         })
       }
+    } else if (transactions.length === 0 && publicKey && walletActivity && walletActivity.transactionCount > 0) {
+      // If transactions list is cleared but we had activity, keep the count
+      // This prevents flickering when transactions are being reloaded
+      console.log('Transactions list is empty, keeping existing walletActivity')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, publicKey])
@@ -429,55 +433,47 @@ export default function CapsulesPage() {
       await fetchTransactionHistory(publicKey.toString(), savedTx || null, savedExecutionTx || null)
       console.log('fetchTransactionHistory completed, current transactions:', transactions.length)
       
-      // Fetch wallet activity from Helius RPC
-      // This provides comprehensive wallet activity data including all transactions
-      // Always fetch and use Helius data as it's the most accurate source
-      const activity = await getWalletActivity(publicKey.toString())
-      
-      if (activity) {
-        // Use the most recent transaction from our transactions list (which includes all capsule transactions)
-        // This ensures we show the most recent capsule transaction, not just any transaction
-        const mostRecentTx = transactions.length > 0 ? transactions[0] : null
-        const mostRecentSignature = mostRecentTx?.signature || activity.lastSignature || ''
+      // Use transactions list to set wallet activity (most accurate source)
+      // This ensures we show the most recent capsule transaction and accurate count
+      if (transactions.length > 0) {
+        // Get the most recent transaction (first in sorted array, newest first)
+        const mostRecentTx = transactions[0]
+        const mostRecentSignature = mostRecentTx?.signature || ''
         const mostRecentTimestamp = mostRecentTx?.timestamp 
           ? mostRecentTx.timestamp * 1000 
-          : (activity.lastActivityTimestamp || 0)
+          : 0
         
-        // Merge with capsule-specific transactions if needed
         const finalActivity = {
-          wallet: activity.wallet,
+          wallet: publicKey.toString(),
           lastSignature: mostRecentSignature,
           lastActivityTimestamp: mostRecentTimestamp,
-          transactionCount: Math.max(activity.transactionCount, transactions.length), // Use the larger count
+          transactionCount: transactions.length, // Use actual transaction count from our list
         }
         
-        console.log('Setting wallet activity:', finalActivity)
-        console.log('Most recent transaction:', mostRecentTx ? {
+        console.log('Setting wallet activity from transactions:', finalActivity)
+        console.log('Most recent transaction:', {
           signature: mostRecentTx.signature?.substring(0, 8) + '...',
           type: mostRecentTx.type,
           timestamp: mostRecentTx.timestamp ? new Date(mostRecentTx.timestamp * 1000).toLocaleString() : 'N/A'
-        } : 'None')
-        setWalletActivity(finalActivity)
-      } else if (transactions.length > 0) {
-        // Fallback to transaction data if Helius RPC fails
-        const firstTx = transactions[0]
-        const fallbackActivity = {
-          wallet: publicKey.toString(),
-          lastSignature: firstTx.signature || '',
-          lastActivityTimestamp: firstTx.timestamp ? firstTx.timestamp * 1000 : 0,
-          transactionCount: transactions.length,
-        }
-        console.log('Using fallback wallet activity from transactions:', fallbackActivity)
-        setWalletActivity(fallbackActivity)
-      } else {
-        // No data available - set empty state
-        console.log('No wallet activity data available')
-        setWalletActivity({
-          wallet: publicKey.toString(),
-          lastSignature: '',
-          lastActivityTimestamp: 0,
-          transactionCount: 0,
         })
+        setWalletActivity(finalActivity)
+      } else {
+        // Try to fetch from Helius RPC as fallback
+        const activity = await getWalletActivity(publicKey.toString())
+        
+        if (activity) {
+          console.log('Setting wallet activity from Helius RPC (fallback):', activity)
+          setWalletActivity(activity)
+        } else {
+          // No data available - set empty state
+          console.log('No wallet activity data available')
+          setWalletActivity({
+            wallet: publicKey.toString(),
+            lastSignature: '',
+            lastActivityTimestamp: 0,
+            transactionCount: 0,
+          })
+        }
       }
     } catch (err: any) {
       console.error('Error loading capsule data:', err)
@@ -1056,10 +1052,46 @@ export default function CapsulesPage() {
             // Determine transaction type
             let txType: 'creation' | 'execution' | undefined = undefined
             
+            // Check for asset distribution (transfers) - key indicator of execution
+            // Execution transactions distribute assets to multiple beneficiaries
+            let hasAssetDistribution = false
+            
+            // Check native SOL transfers
+            const nativeTransfers = tx.nativeTransfers || tx.transaction?.meta?.nativeTransfers || []
+            if (Array.isArray(nativeTransfers) && nativeTransfers.length > 0) {
+              // Execution typically has multiple transfers (to beneficiaries)
+              // More than 1 transfer usually indicates execution
+              hasAssetDistribution = nativeTransfers.length > 1
+              console.log(`  Native transfers found: ${nativeTransfers.length}`)
+            }
+            
+            // Check token transfers
+            const tokenTransfers = tx.tokenTransfers || tx.transaction?.meta?.tokenTransfers || []
+            if (Array.isArray(tokenTransfers) && tokenTransfers.length > 0) {
+              // Execution typically has multiple token transfers (to beneficiaries)
+              hasAssetDistribution = hasAssetDistribution || tokenTransfers.length > 1
+              console.log(`  Token transfers found: ${tokenTransfers.length}`)
+            }
+            
+            // Check balance changes that indicate transfers to multiple accounts
+            if (!hasAssetDistribution && tx.meta?.postBalances && tx.meta?.preBalances) {
+              const balanceChanges = tx.meta.preBalances.map((pre: number, idx: number) => {
+                const post = tx.meta.postBalances[idx]
+                return { pre, post, change: post - pre }
+              }).filter((change: any) => change.change > 0 && change.pre > 0) // Only positive changes to existing accounts
+              
+              // If multiple accounts received SOL (positive balance changes), it's likely execution
+              if (balanceChanges.length > 1) {
+                hasAssetDistribution = true
+                console.log(`  Multiple balance increases found: ${balanceChanges.length}`)
+              }
+            }
+            
             // Prioritize execution detection - check for execution first
-            if ((hasExecuteLog || hasExecuteEvent || hasExecuteInstruction) && involvesProgram) {
+            // Execution is identified by: execute logs/events OR asset distribution to multiple accounts
+            if (((hasExecuteLog || hasExecuteEvent || hasExecuteInstruction) || hasAssetDistribution) && involvesProgram) {
               txType = 'execution'
-              console.log(`✓ Found execution transaction: ${signature.substring(0, 8)}...`)
+              console.log(`✓ Found execution transaction: ${signature.substring(0, 8)}... (hasAssetDistribution: ${hasAssetDistribution})`)
             }
             // Check for creation (only if not already identified as execution)
             else if (hasCreateCapsuleLog && involvesProgram) {
@@ -1111,20 +1143,37 @@ export default function CapsulesPage() {
             // Always add transactions that involve the program, even if type is unclear
             // But first check if it might be an execution by checking transaction structure
             if (involvesProgram && !txType) {
-              // Check if transaction has execution-like characteristics
-              // Execution transactions often have different account balance changes
-              const mightBeExecution = tx.meta?.postBalances && tx.meta?.preBalances && 
-                Array.isArray(tx.meta.preBalances) && Array.isArray(tx.meta.postBalances) &&
-                tx.meta.preBalances.length === tx.meta.postBalances.length &&
-                tx.meta.preBalances.some((pre: number, idx: number) => {
-                  const post = tx.meta.postBalances[idx]
-                  // Execution might transfer tokens (balance changes without account creation)
-                  return pre !== post && pre > 0 && post > 0
-                })
+              // Re-check for asset distribution (might have been missed earlier)
+              let hasAssetDistribution = false
               
-              if (mightBeExecution) {
+              // Check native SOL transfers
+              const nativeTransfers = tx.nativeTransfers || tx.transaction?.meta?.nativeTransfers || []
+              if (Array.isArray(nativeTransfers) && nativeTransfers.length > 1) {
+                hasAssetDistribution = true
+              }
+              
+              // Check token transfers
+              const tokenTransfers = tx.tokenTransfers || tx.transaction?.meta?.tokenTransfers || []
+              if (Array.isArray(tokenTransfers) && tokenTransfers.length > 1) {
+                hasAssetDistribution = true
+              }
+              
+              // Check balance changes that indicate transfers to multiple accounts
+              if (!hasAssetDistribution && tx.meta?.postBalances && tx.meta?.preBalances) {
+                const balanceChanges = tx.meta.preBalances.map((pre: number, idx: number) => {
+                  const post = tx.meta.postBalances[idx]
+                  return { pre, post, change: post - pre }
+                }).filter((change: any) => change.change > 0 && change.pre > 0)
+                
+                if (balanceChanges.length > 1) {
+                  hasAssetDistribution = true
+                }
+              }
+              
+              // If asset distribution is detected, it's execution
+              if (hasAssetDistribution) {
                 txType = 'execution'
-                console.log(`  → Inferred execution from transaction structure: ${signature.substring(0, 8)}...`)
+                console.log(`  → Inferred execution from asset distribution: ${signature.substring(0, 8)}...`)
               } else {
                 txType = 'creation'
                 console.log(`  → Force adding program-related transaction as creation: ${signature.substring(0, 8)}...`)
