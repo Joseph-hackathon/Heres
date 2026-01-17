@@ -1142,12 +1142,30 @@ export default function CapsulesPage() {
             // If it involves the program but we can't determine type, check if it matches known signatures
             else if (involvesProgram) {
               console.log(`  Transaction involves program but type unclear: ${signature.substring(0, 8)}...`)
+              
+              // Check against all known execution signatures from localStorage
+              // This ensures execution transactions are properly identified even if detection logic fails
+              const allExecutionSigs = new Set<string>()
+              if (executionTxSignature) {
+                allExecutionSigs.add(executionTxSignature)
+              }
+              // Also check localStorage for all execution signatures
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key && key.startsWith(`capsule_execution_tx_${walletAddress}`)) {
+                  const sig = localStorage.getItem(key)
+                  if (sig) {
+                    allExecutionSigs.add(sig)
+                  }
+                }
+              }
+              
               if (signature === creationTxSignature) {
                 txType = 'creation'
                 console.log(`Matched known creation signature: ${signature.substring(0, 8)}...`)
-              } else if (signature === executionTxSignature) {
+              } else if (allExecutionSigs.has(signature)) {
                 txType = 'execution'
-                console.log(`Matched known execution signature: ${signature.substring(0, 8)}...`)
+                console.log(`Matched known execution signature from localStorage: ${signature.substring(0, 8)}...`)
               } else {
                 // If it involves the program but we can't determine type, assume it might be a capsule transaction
                 // Check if it's a creation by looking for account creation patterns
@@ -1353,10 +1371,40 @@ export default function CapsulesPage() {
             console.warn('Program ID:', programId)
           }
           
-          // Remove duplicates and sort by timestamp (newest first)
-          const uniqueTxs = allTxs.filter((tx, index, self) => 
-            index === self.findIndex((t) => t.signature === tx.signature)
-          )
+          // Remove duplicates, prioritizing execution type over creation
+          // If same signature appears with different types, keep the execution type
+          const uniqueTxs: any[] = []
+          const seenSignatures = new Map<string, any>()
+          
+          for (const tx of allTxs) {
+            if (!tx.signature) continue
+            
+            const existing = seenSignatures.get(tx.signature)
+            if (!existing) {
+              // First time seeing this signature
+              seenSignatures.set(tx.signature, tx)
+              uniqueTxs.push(tx)
+            } else {
+              // Duplicate signature - prioritize execution type
+              if (tx.type === 'execution' && existing.type === 'creation') {
+                // Replace creation with execution
+                const index = uniqueTxs.findIndex(t => t.signature === tx.signature)
+                if (index !== -1) {
+                  uniqueTxs[index] = tx
+                  seenSignatures.set(tx.signature, tx)
+                  console.log(`Upgraded transaction ${tx.signature.substring(0, 8)}... from creation to execution`)
+                }
+              } else if (tx.type === 'execution' && existing.type !== 'execution') {
+                // Ensure execution type is preserved
+                const index = uniqueTxs.findIndex(t => t.signature === tx.signature)
+                if (index !== -1) {
+                  uniqueTxs[index] = { ...uniqueTxs[index], type: 'execution' }
+                  seenSignatures.set(tx.signature, uniqueTxs[index])
+                }
+              }
+            }
+          }
+          
           uniqueTxs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
           
           console.log('Final merged transactions:', uniqueTxs.length)
