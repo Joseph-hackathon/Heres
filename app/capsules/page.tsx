@@ -24,7 +24,20 @@ const WalletMultiButton = dynamic(
 
 export default function CapsulesPage() {
   const wallet = useWallet()
-  const { publicKey, connected } = wallet
+  const { publicKey, connected, disconnect, select, wallets } = wallet
+  const [showWalletMenu, setShowWalletMenu] = useState(false)
+
+  // Close wallet menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showWalletMenu && !target.closest('.wallet-menu-container')) {
+        setShowWalletMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showWalletMenu])
   const [capsule, setCapsule] = useState<IntentCapsule | null>(null)
   const [intentData, setIntentData] = useState<any>(null)
   const [walletActivity, setWalletActivity] = useState<any>(null)
@@ -1998,8 +2011,65 @@ export default function CapsulesPage() {
               </span>
             </Link>
             <div className="flex items-center gap-4">
-              <div className="relative z-[9999]">
-                <WalletMultiButton />
+              <div className="relative z-[9999] wallet-menu-container">
+                {connected && publicKey ? (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowWalletMenu(!showWalletMenu)}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                    >
+                      <span className="font-mono text-sm">
+                        {publicKey.toString().slice(0, 4)}...{publicKey.toString().slice(-4)}
+                      </span>
+                      {showWalletMenu ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                    {showWalletMenu && (
+                      <div className="absolute right-0 mt-2 w-48 bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden z-[10000]">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await disconnect()
+                              setShowWalletMenu(false)
+                            } catch (err) {
+                              console.error('Error disconnecting wallet:', err)
+                            }
+                          }}
+                          className="w-full text-left px-4 py-2 text-white hover:bg-slate-700 transition-colors"
+                        >
+                          Disconnect
+                        </button>
+                        {wallets && wallets.length > 1 && (
+                          <>
+                            <div className="border-t border-slate-700"></div>
+                            <div className="px-2 py-1 text-xs text-slate-400">Switch Wallet</div>
+                            {wallets.map((w: any) => (
+                              <button
+                                key={w.adapter.name}
+                                onClick={async () => {
+                                  try {
+                                    await select(w.adapter.name)
+                                    setShowWalletMenu(false)
+                                  } catch (err) {
+                                    console.error('Error switching wallet:', err)
+                                  }
+                                }}
+                                className="w-full text-left px-4 py-2 text-white hover:bg-slate-700 transition-colors"
+                              >
+                                {w.adapter.name}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <WalletMultiButton />
+                )}
               </div>
               <Link href="/">
                 <button className="material-button material-elevation-2 hover:material-elevation-4 flex items-center gap-2 px-4 py-2 bg-slate-800/60 hover:bg-slate-700/60 backdrop-blur-xl text-white rounded-lg border border-slate-700/50 hover:border-blue-500/50 transition-all">
