@@ -7,7 +7,7 @@ import { ArrowLeft, Shield, Clock, CheckCircle, XCircle, ExternalLink, Lock, Act
 import Link from 'next/link'
 import Image from 'next/image'
 import { getCapsule, executeIntent } from '@/lib/solana'
-import { getWalletActivity } from '@/lib/helius'
+import { getWalletActivity, getTransactionsForAddress } from '@/lib/helius'
 import { getSolanaConnection, getProgramId } from '@/config/solana'
 import { getCapsulePDA } from '@/lib/program'
 import { decodeIntentData, secondsToDays } from '@/utils/intent'
@@ -110,8 +110,8 @@ export default function CapsulesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capsule, publicKey, wallet, isExecuting])
 
-  // Update walletActivity when transactions are loaded, but prioritize Helius API data
-  // This effect only updates if walletActivity is not already set from Helius API
+  // Update walletActivity when transactions are loaded, but prioritize Helius RPC data
+  // This effect only updates if walletActivity is not already set from Helius RPC
   useEffect(() => {
     if (transactions.length > 0 && publicKey && (!walletActivity || walletActivity.transactionCount === 0)) {
       // Get the most recent transaction (first in sorted array)
@@ -429,7 +429,7 @@ export default function CapsulesPage() {
       await fetchTransactionHistory(publicKey.toString(), savedTx || null, savedExecutionTx || null)
       console.log('fetchTransactionHistory completed, current transactions:', transactions.length)
       
-      // Fetch wallet activity from Helius API
+      // Fetch wallet activity from Helius RPC
       // This provides comprehensive wallet activity data including all transactions
       // Always fetch and use Helius data as it's the most accurate source
       const activity = await getWalletActivity(publicKey.toString())
@@ -459,7 +459,7 @@ export default function CapsulesPage() {
         } : 'None')
         setWalletActivity(finalActivity)
       } else if (transactions.length > 0) {
-        // Fallback to transaction data if Helius API fails
+        // Fallback to transaction data if Helius RPC fails
         const firstTx = transactions[0]
         const fallbackActivity = {
           wallet: publicKey.toString(),
@@ -511,7 +511,7 @@ export default function CapsulesPage() {
     
     try {
       // First, explicitly check for and fetch the known latest transaction (JAJ9NiAT...wWVP)
-      // This ensures we don't miss it even if Helius API doesn't return it
+      // This ensures we don't miss it even if Helius RPC doesn't return it
       const knownLatestTx = 'JAJ9NiATPTArLQj1LZLoGacpN3aUkNwU6weZ1iiTbPU6QMmJc13PkmvCwFeUQ3Y15kuNhhnZCjpKVymm7DrwWVP'
       const knownLatestTxKey = STORAGE_KEYS.CAPSULE_CREATION_TX_WITH_SIG(walletAddress, knownLatestTx)
       const hasKnownLatest = localStorage.getItem(knownLatestTxKey) === knownLatestTx
@@ -849,50 +849,24 @@ export default function CapsulesPage() {
         }
       } catch (rpcError) {
         console.error('Error fetching from Solana RPC:', rpcError)
-        // Fall through to Helius API
+        // Fall through to Helius RPC
       }
       
-      // Method 2: Fetch ALL transactions from Helius API and filter for capsule-related ones
-      const response = await fetch(
-        `${HELIUS_CONFIG.BASE_URL}/addresses/${walletAddress}/transactions?api-key=${SOLANA_CONFIG.HELIUS_API_KEY}&limit=100`
-      )
+      // Method 2: Fetch ALL transactions from Helius using getTransactionsForAddress RPC method
+      // This new method provides better performance and includes associated token accounts
+      const heliusResult = await getTransactionsForAddress(walletAddress, {
+        transactionDetails: 'full', // Get full transaction data in one call
+        sortOrder: 'desc', // Newest first
+        limit: 100,
+        filters: {
+          status: 'succeeded', // Only successful transactions
+          tokenAccounts: 'balanceChanged', // Include token account balance changes
+        },
+      })
       
-      if (response.ok) {
-        let data: any
-        try {
-          data = await response.json()
-        } catch (parseError) {
-          console.error('Error parsing Helius API response:', parseError)
-          const text = await response.text()
-          console.error('Response text:', text.substring(0, 500))
-          return
-        }
-        
-        // Handle different response formats from Helius API
-        let transactions: any[] = []
-        if (Array.isArray(data)) {
-          transactions = data
-        } else if (data && Array.isArray(data.transactions)) {
-          transactions = data.transactions
-        } else if (data && data.result && Array.isArray(data.result)) {
-          transactions = data.result
-        } else if (data && data.data && Array.isArray(data.data)) {
-          transactions = data.data
-        } else {
-          console.warn('Unexpected Helius API response format:', data)
-          console.warn('Response type:', typeof data)
-          console.warn('Response keys:', data ? Object.keys(data) : 'null/undefined')
-          // If data is not an array and doesn't have expected properties, set empty array
-          transactions = []
-        }
-        
-        // Ensure transactions is always an array
-        if (!Array.isArray(transactions)) {
-          console.error('Transactions is not an array:', typeof transactions, transactions)
-          transactions = []
-        }
-        
-        console.log('Helius API returned transactions:', transactions.length)
+      if (heliusResult && heliusResult.data && heliusResult.data.length > 0) {
+        const transactions = heliusResult.data
+        console.log('Helius RPC returned transactions:', transactions.length)
         
         if (transactions && transactions.length > 0) {
           const programId = SOLANA_CONFIG.PROGRAM_ID
@@ -907,10 +881,14 @@ export default function CapsulesPage() {
           
           for (const tx of transactions) {
             // Extract signature from different possible response formats
+            // getTransactionsForAddress with 'full' mode returns full transaction objects
+            // Signature can be in transaction.signatures[0] or directly as signature field
             const signature = tx.signature || 
                              tx.transactionSignature ||
                              tx.transaction?.signatures?.[0] ||
+                             tx.transaction?.transaction?.signatures?.[0] ||
                              tx.tx?.signature ||
+                             tx.tx?.transaction?.signatures?.[0] ||
                              tx.signatures?.[0] ||
                              ''
             
@@ -1280,7 +1258,7 @@ export default function CapsulesPage() {
           
           // Debug: If no Helius transactions found, log why
           if (allCapsuleTxs.length === 0 && transactions.length > 0) {
-            console.warn('No capsule transactions found from Helius API despite', transactions.length, 'total transactions')
+            console.warn('No capsule transactions found from Helius RPC despite', transactions.length, 'total transactions')
             console.warn('This might indicate that program ID detection is failing')
             console.warn('Program ID:', programId)
           }
@@ -1354,7 +1332,7 @@ export default function CapsulesPage() {
               }
             }
             
-            // Also check transactions from Helius API that were just added
+            // Also check transactions from Helius RPC that were just added
             const creationTxsFromHelius = uniqueTxs.filter(tx => tx.type === 'creation')
             for (const tx of creationTxsFromHelius) {
               if (tx.signature && !seenSignatures.has(tx.signature)) {
@@ -1433,15 +1411,14 @@ export default function CapsulesPage() {
             console.log('State check after update - transactions count should be:', uniqueTxs.length)
           }, 100)
         } else {
-          console.log('No capsule transactions found in Helius API response')
+          console.log('No capsule transactions found in Helius RPC response')
           // Keep existing transactions from localStorage if any
           if (localStorageTxs.length > 0) {
             console.log('Keeping localStorage transactions:', localStorageTxs.length)
           }
         }
       } else {
-        const errorText = await response.text().catch(() => 'Unable to read error response')
-        console.error('Helius API error:', response.status, response.statusText, errorText.substring(0, 200))
+        console.error('Helius RPC error: No transactions returned or invalid response')
       }
     } catch (error: any) {
       console.error('Error fetching transaction history:', error)
@@ -1456,7 +1433,7 @@ export default function CapsulesPage() {
       }
     } finally {
       // After all processing, ensure the most recent creation transaction is set
-      // This handles cases where Helius API might miss some transactions
+      // This handles cases where Helius RPC might miss some transactions
       if (publicKey) {
         const allCreationTxKeys: string[] = []
         for (let i = 0; i < localStorage.length; i++) {
@@ -2314,7 +2291,7 @@ export default function CapsulesPage() {
                         <span className="text-white font-semibold">Real-time Monitoring</span>
                       </div>
                       <p className="text-slate-300 text-sm mb-3">
-                        Wallet activity is monitored in real-time using Helius API for accurate inactivity detection.
+                        Wallet activity is monitored in real-time using Helius RPC (getTransactionsForAddress) for accurate inactivity detection.
                       </p>
                       <div className="mt-3 pt-3 border-t border-slate-700/50">
                         <div className="flex items-center justify-between mb-2">

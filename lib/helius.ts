@@ -1,49 +1,155 @@
 /**
  * Helius API integration for real-time on-chain monitoring
+ * 
+ * Updated to use getTransactionsForAddress RPC method for better performance
+ * and advanced filtering capabilities.
+ * 
+ * @see https://www.helius.dev/docs/rpc/gettransactionsforaddress
  */
 
 import { HELIUS_CONFIG, SOLANA_CONFIG } from '@/constants'
 import type { WalletActivity } from '@/types'
 
 /**
+ * Interface for getTransactionsForAddress request parameters
+ */
+export interface GetTransactionsForAddressParams {
+  transactionDetails?: 'signatures' | 'full'
+  sortOrder?: 'asc' | 'desc'
+  limit?: number
+  paginationToken?: string
+  commitment?: 'finalized' | 'confirmed'
+  filters?: {
+    slot?: {
+      gte?: number
+      gt?: number
+      lte?: number
+      lt?: number
+    }
+    blockTime?: {
+      gte?: number
+      gt?: number
+      lte?: number
+      lt?: number
+      eq?: number
+    }
+    signature?: {
+      gte?: string
+      gt?: string
+      lte?: string
+      lt?: string
+    }
+    status?: 'succeeded' | 'failed'
+    tokenAccounts?: 'none' | 'balanceChanged' | 'all'
+  }
+}
+
+/**
+ * Interface for getTransactionsForAddress response
+ */
+export interface GetTransactionsForAddressResponse {
+  data: any[]
+  paginationToken?: string
+}
+
+/**
+ * Get transactions for an address using Helius getTransactionsForAddress RPC method
+ * 
+ * This is a Helius-exclusive RPC method that provides:
+ * - Full transaction data in one call (no need for getTransaction)
+ * - Associated Token Accounts (ATA) support
+ * - Advanced filtering and sorting
+ * - Efficient pagination
+ * 
+ * @param address - Base-58 encoded public key
+ * @param params - Query parameters
+ * @returns Transaction data with pagination token
+ */
+export async function getTransactionsForAddress(
+  address: string,
+  params: GetTransactionsForAddressParams = {}
+): Promise<GetTransactionsForAddressResponse | null> {
+  try {
+    const {
+      transactionDetails = 'signatures',
+      sortOrder = 'desc',
+      limit = 100,
+      paginationToken,
+      commitment = 'finalized',
+      filters = {},
+    } = params
+
+    const rpcUrl = HELIUS_CONFIG.RPC_URL
+    if (!rpcUrl) {
+      throw new Error('Helius RPC URL not configured')
+    }
+
+    const requestBody = {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'getTransactionsForAddress',
+      params: [
+        address,
+        {
+          transactionDetails,
+          sortOrder,
+          limit,
+          ...(paginationToken && { paginationToken }),
+          commitment,
+          ...(Object.keys(filters).length > 0 && { filters }),
+        },
+      ],
+    }
+
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Helius RPC error: ${response.status} ${response.statusText}`, errorText)
+      throw new Error(`Helius RPC error: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+
+    if (data.error) {
+      console.error('Helius RPC error:', data.error)
+      throw new Error(data.error.message || 'Helius RPC error')
+    }
+
+    return data.result || null
+  } catch (error) {
+    console.error('Error fetching transactions from Helius RPC:', error)
+    return null
+  }
+}
+
+/**
  * Get wallet activity information from Helius
+ * 
+ * Updated to use getTransactionsForAddress RPC method for better performance
  */
 export async function getWalletActivity(walletAddress: string): Promise<WalletActivity | null> {
   try {
-    // Use Helius Enhanced Transactions API for better data
-    // This endpoint returns transactions in a more structured format
-    const response = await fetch(
-      `${HELIUS_CONFIG.BASE_URL}/addresses/${walletAddress}/transactions?api-key=${SOLANA_CONFIG.HELIUS_API_KEY}&limit=100`
-    )
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Helius API error: ${response.status} ${response.statusText}`, errorText)
-      throw new Error(`Helius API error: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
-    
-    // Handle different response formats from Helius API
-    let transactions: any[] = []
-    
-    if (Array.isArray(data)) {
-      // Direct array response
-      transactions = data
-    } else if (data && Array.isArray(data.transactions)) {
-      // Wrapped in transactions property
-      transactions = data.transactions
-    } else if (data && data.result && Array.isArray(data.result)) {
-      // Wrapped in result property
-      transactions = data.result
-    } else if (data && data.data && Array.isArray(data.data)) {
-      // Wrapped in data property
-      transactions = data.data
-    } else {
-      console.warn('Unexpected Helius API response format:', data)
-    }
-    
-    if (!transactions || transactions.length === 0) {
+    // Use new getTransactionsForAddress RPC method
+    // Get only successful transactions, sorted newest first
+    // Include associated token accounts with balance changes
+    const result = await getTransactionsForAddress(walletAddress, {
+      transactionDetails: 'signatures', // Use signatures for faster response
+      sortOrder: 'desc', // Newest first
+      limit: 100,
+      filters: {
+        status: 'succeeded', // Only successful transactions
+        tokenAccounts: 'balanceChanged', // Include token account balance changes
+      },
+    })
+
+    if (!result || !result.data || result.data.length === 0) {
       console.log('No transactions found for wallet:', walletAddress)
       return {
         wallet: walletAddress,
@@ -52,65 +158,42 @@ export async function getWalletActivity(walletAddress: string): Promise<WalletAc
         transactionCount: 0,
       }
     }
-    
-    // Sort transactions by timestamp (newest first) if available
-    transactions.sort((a, b) => {
-      const timeA = a.timestamp || a.blockTime || a.tx?.blockTime || 0
-      const timeB = b.timestamp || b.blockTime || b.tx?.blockTime || 0
-      return timeB - timeA
-    })
-    
-    // Get the latest transaction
+
+    const transactions = result.data
+
+    // Get the latest transaction (first in desc order)
     const latestTx = transactions[0]
-    
-    // Extract signature from different possible response formats
+
+    // Extract signature from transaction
+    // For signatures mode, the response format is: { signature: string, slot: number, blockTime: number | null, err: any }
+    // For full mode, it's the full transaction object
     const signature = latestTx.signature || 
-                     latestTx.transactionSignature ||
                      latestTx.transaction?.signatures?.[0] ||
-                     latestTx.tx?.signature ||
-                     latestTx.signatures?.[0] ||
                      ''
-    
-    // Extract timestamp from different possible response formats
+
+    // Extract timestamp
     let timestamp = 0
-    if (latestTx.timestamp) {
-      timestamp = typeof latestTx.timestamp === 'number' 
-        ? latestTx.timestamp 
-        : parseInt(String(latestTx.timestamp))
-    } else if (latestTx.blockTime) {
+    if (latestTx.blockTime) {
       timestamp = typeof latestTx.blockTime === 'number'
         ? latestTx.blockTime
         : parseInt(String(latestTx.blockTime))
-    } else if (latestTx.tx?.blockTime) {
-      timestamp = typeof latestTx.tx.blockTime === 'number'
-        ? latestTx.tx.blockTime
-        : parseInt(String(latestTx.tx.blockTime))
-    } else if (latestTx.nativeTransfers && latestTx.nativeTransfers.length > 0) {
-      // Try to get timestamp from native transfers
-      const transfer = latestTx.nativeTransfers[0]
-      if (transfer.timestamp) {
-        timestamp = typeof transfer.timestamp === 'number'
-          ? transfer.timestamp
-          : parseInt(String(transfer.timestamp))
-      }
+    } else if (latestTx.transaction?.blockTime) {
+      timestamp = typeof latestTx.transaction.blockTime === 'number'
+        ? latestTx.transaction.blockTime
+        : parseInt(String(latestTx.transaction.blockTime))
     }
-    
+
     // Convert timestamp to milliseconds if it's in seconds (Unix timestamp)
     // Timestamps > 1000000000000 are already in milliseconds
     const timestampMs = timestamp > 1000000000000 ? timestamp : timestamp * 1000
-    
-    console.log('Helius API response for wallet:', walletAddress, {
+
+    console.log('Helius RPC response for wallet:', walletAddress, {
       transactionCount: transactions.length,
       latestSignature: signature,
       latestTimestamp: timestampMs,
       latestTimestampFormatted: new Date(timestampMs).toLocaleString(),
-      sampleTx: {
-        signature: latestTx.signature,
-        timestamp: latestTx.timestamp,
-        blockTime: latestTx.blockTime,
-      }
     })
-    
+
     return {
       wallet: walletAddress,
       lastSignature: signature,
