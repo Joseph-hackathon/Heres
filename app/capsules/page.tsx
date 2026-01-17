@@ -2405,7 +2405,7 @@ export default function CapsulesPage() {
             {/* Transaction History */}
             <div className="material-card material-elevation-2 hover:material-elevation-4 p-8">
               <h2 className="text-2xl font-bold text-white mb-6">
-                Recent Transactions
+                Recent capsule transactions
                 {transactions.length > 0 && (
                   <span className="ml-2 text-sm text-slate-400">({transactions.length})</span>
                 )}
@@ -2414,24 +2414,19 @@ export default function CapsulesPage() {
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {transactions.map((tx: any, idx: number) => (
                     <div key={idx} className="bg-slate-900/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {tx.type === 'execution' && (
-                            <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/50">
-                              Execution
-                            </span>
-                          )}
-                          {tx.type === 'creation' && (
-                            <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/50">
-                              Creation
-                            </span>
-                          )}
-                          <span className="text-white font-mono text-xs">
-                            {tx.signature?.slice(0, 8)}...{tx.signature?.slice(-8)}
+                      <div className="flex items-center gap-2 mb-2">
+                        {tx.type === 'execution' && (
+                          <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded border border-green-500/50">
+                            Execution
                           </span>
-                        </div>
-                        <span className="text-slate-400 text-xs">
-                          {tx.timestamp ? new Date(tx.timestamp * 1000).toLocaleString() : 'N/A'}
+                        )}
+                        {tx.type === 'creation' && (
+                          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/50">
+                            Creation
+                          </span>
+                        )}
+                        <span className="text-white font-mono text-xs">
+                          {tx.signature?.slice(0, 8)}...{tx.signature?.slice(-8)}
                         </span>
                       </div>
                       
@@ -2447,20 +2442,12 @@ export default function CapsulesPage() {
                                 : 'Success'}
                           </span>
                         </div>
-                        {tx.fee !== undefined && tx.fee !== null && (
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">Fee:</span>
-                            <span className="text-white">
-                              {(tx.fee / 1e9).toFixed(9)} SOL
-                            </span>
-                          </div>
-                        )}
-                        {tx.slot && (
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">Slot:</span>
-                            <span className="text-white font-mono">{tx.slot.toLocaleString()}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-400">Date:</span>
+                          <span className="text-white">
+                            {tx.timestamp ? new Date(tx.timestamp * 1000).toLocaleString() : 'N/A'}
+                          </span>
+                        </div>
                         {tx.err && (
                           <div className="mt-1 pt-1 border-t border-red-500/20">
                             <span className="text-red-400 text-xs">
