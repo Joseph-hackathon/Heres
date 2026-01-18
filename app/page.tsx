@@ -2,12 +2,14 @@
 
 import { useWallet } from '@solana/wallet-adapter-react'
 import dynamic from 'next/dynamic'
-import { ArrowRight, Shield, Zap, Eye, Sparkles, Lock, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowRight, Shield, Zap, Eye, Sparkles, Lock, CheckCircle, ChevronDown, ChevronUp, Activity, Gavel, Quote, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import Hero3D from '@/components/Hero3D'
 import WorkflowDemo from '@/components/WorkflowDemo'
+import { SequenceDiagram } from '@/components/SequenceDiagram'
+import { ARCHITECTURE_COMPARISONS } from '@/constants/architecture'
 
 // Dynamic import to prevent hydration errors
 const WalletMultiButton = dynamic(
@@ -20,6 +22,7 @@ export default function Home() {
   const { publicKey, connected, disconnect, select, wallets } = wallet
   const [activeStep, setActiveStep] = useState(1)
   const [showWalletMenu, setShowWalletMenu] = useState(false)
+  const [activeArchitectureStep, setActiveArchitectureStep] = useState<number | null>(null)
 
   // Close wallet menu when clicking outside
   useEffect(() => {
@@ -146,8 +149,8 @@ export default function Home() {
                 )}
               </div>
             ) : (
-              <div className="material-elevation-2 rounded-lg overflow-hidden">
-                <WalletMultiButton />
+          <div className="material-elevation-2 rounded-lg overflow-hidden">
+            <WalletMultiButton />
               </div>
             )}
           </div>
@@ -377,6 +380,153 @@ export default function Home() {
                 )
               })}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Architecture Section */}
+      <section className="relative py-24 px-6 z-20 bg-slate-950/50">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <header className="mb-12 text-center">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4">
+              <Zap size={10} className="fill-current" />
+              <span>How It Works</span>
+            </div>
+            <h2 className="text-4xl md:text-6xl font-black tracking-tighter mb-2 bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">
+              LUCID FLOW
+            </h2>
+            <p className="text-slate-400 max-w-lg mx-auto text-base font-light leading-relaxed">
+              The architecture of verifiable silence. Nothing happens on-chain until inactivity is proven via Noir ZK.
+            </p>
+          </header>
+
+          {/* Side-by-Side Content Area */}
+          <div className="flex flex-col lg:flex-row gap-8 items-start mb-16">
+            {/* Main Diagram Section (Left) */}
+            <section className="w-full lg:w-[62%]">
+              <div className="flex items-center justify-between mb-6 px-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                    <Activity size={16} className="text-blue-500" />
+                  </div>
+                  <h3 className="text-lg font-black tracking-tight uppercase text-white/90">Execution Pipeline</h3>
+                </div>
+                <div className="text-[9px] font-mono text-slate-500 tracking-widest uppercase flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  Interactive Protocol
+                </div>
+              </div>
+
+              <SequenceDiagram 
+                activeStep={activeArchitectureStep} 
+                onStepHover={setActiveArchitectureStep} 
+              />
+            </section>
+
+            {/* Table Section (Right) */}
+            <section className="w-full lg:w-[38%] sticky top-8 space-y-6">
+              <div>
+                <div className="mb-4 px-2">
+                  <h3 className="text-lg font-black text-white/90 uppercase tracking-tight mb-1">Protocol Milestones</h3>
+                  <div className="h-0.5 w-12 bg-blue-500/30 rounded-full" />
+                </div>
+
+                <div className="glass rounded-2xl overflow-hidden border-white/5 shadow-2xl transition-all mb-3">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900/80 border-b border-white/5">
+                        <th className="px-4 py-4 text-[9px] font-black uppercase tracking-[0.3em] text-blue-400">Lucid Sequence</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {ARCHITECTURE_COMPARISONS.map((row, i) => {
+                        const isHighlighted = activeArchitectureStep !== null && row.relatedStepIds?.includes(activeArchitectureStep)
+                        return (
+                          <tr 
+                            key={i} 
+                            className={`transition-all duration-500 group cursor-default relative
+                              ${isHighlighted ? 'bg-blue-600/15' : 'hover:bg-white/[0.02]'}
+                            `}
+                            onMouseEnter={() => {
+                              if (row.relatedStepIds?.length) setActiveArchitectureStep(row.relatedStepIds[0])
+                            }}
+                            onMouseLeave={() => setActiveArchitectureStep(null)}
+                          >
+                            <td className="px-4 py-3 relative overflow-hidden">
+                              {/* Highlight Indicator Bar */}
+                              <div className={`absolute left-0 top-0 bottom-0 w-1 transition-all duration-500 ${isHighlighted ? 'bg-blue-500 opacity-100 scale-y-100' : 'bg-blue-500/0 opacity-0 scale-y-0'}`} />
+                              
+                              <div className="flex items-center gap-2.5">
+                                <Zap size={11} className={`transition-all duration-500 ${isHighlighted ? 'text-blue-400 scale-125 glow-blue' : 'text-blue-500/30 group-hover:text-blue-500/50'}`} />
+                                <span className={`text-[13px] font-bold transition-all duration-300 ${isHighlighted ? 'text-white translate-x-1' : 'text-blue-100/70 group-hover:text-white'}`}>
+                                  {row.lucid}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="px-2 text-[10px] font-mono text-slate-500 leading-relaxed uppercase tracking-widest">
+                  * Hover milestones to highlight steps
+                </p>
+              </div>
+
+              {/* Role of Noir ZK Section */}
+              <div className="glass rounded-2xl p-6 border-white/5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                  <Gavel size={80} />
+                </div>
+                
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                    <Gavel size={16} className="text-indigo-400" />
+                  </div>
+                  <h3 className="text-sm font-black text-white/90 uppercase tracking-widest">The Role of Noir ZK</h3>
+                </div>
+
+                <div className="space-y-4 relative z-10">
+                  <p className="text-sm font-medium text-slate-300 leading-relaxed">
+                    In Lucid, Noir acts as a <span className="text-indigo-400 font-bold">Judge</span>, not a mediator.
+                  </p>
+
+                  <ul className="space-y-3">
+                  {[
+                    "Was there true silence?",
+                    "Are conditions fully met?",
+                    "Is execution still valid?"
+                  ].map((q, idx) => (
+                    <li key={idx} className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <CheckCircle2 size={12} className="text-blue-500/50" />
+                      </div>
+                      <span className="text-xs text-slate-400 italic font-light">"{q}"</span>
+                    </li>
+                  ))}
+                </ul>
+
+                  <div className="pt-4 border-t border-white/5">
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Noir answers these questions with a binary <span className="text-white font-bold">Yes / No</span>, 
+                      providing absolute verification <span className="text-indigo-400/80 underline decoration-indigo-500/30 underline-offset-4">without revealing any raw data</span>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Core Philosophy Caption */}
+              <div className="glass px-6 py-5 rounded-2xl border-blue-500/20 relative group overflow-hidden text-center">
+                <div className="absolute inset-0 bg-blue-500/[0.03] group-hover:bg-blue-500/[0.07] transition-colors" />
+                <Quote className="absolute -top-2 -left-2 text-blue-500/5" size={40} />
+                <p className="text-base md:text-lg font-light italic text-blue-100 relative z-10 leading-relaxed">
+                  "Lucid replaces <span className="text-blue-400 font-bold">payment</span> with <span className="text-blue-400 font-bold">silence</span>, 
+                  and verifies it with <span className="text-white font-semibold">Noir ZK</span>."
+                </p>
+              </div>
+            </section>
           </div>
         </div>
       </section>
