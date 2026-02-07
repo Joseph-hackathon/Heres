@@ -5,16 +5,18 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   // Exclude Android/TWA directories from Next.js build traces
-  outputFileTracingExcludes: {
-    '*': [
-      '.gradle/**',
-      'apk-extract/**',
-      'scripts/**',
-      'android.keystore',
-      'app-release-*.apk',
-      'app-release-*.aab',
-      'app-release-*.zip',
-    ],
+  experimental: {
+    outputFileTracingExcludes: {
+      '/**/*': [
+        '.gradle/**',
+        'apk-extract/**',
+        'scripts/**',
+        'android.keystore',
+        'app-release-*.apk',
+        'app-release-*.aab',
+        'app-release-*.zip',
+      ],
+    },
   },
   webpack: (config, { isServer, webpack }) => {
     // Ignore server-only modules in client bundle
