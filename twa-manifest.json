@@ -1,0 +1,49 @@
+{
+    "packageId": "app.vercel.heres.twa",
+    "host": "heres.vercel.app",
+    "name": "Heres",
+    "themeColor": "#1E90FF",
+    "navigationColor": "#030712",
+    "backgroundColor": "#030712",
+    "enableNotifications": true,
+    "startUrl": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "icon": "public/icons/mipmap-xxxhdpi/ic_launcher_foreground.png",
+    "maskableIcon": "public/icons/mipmap-xxxhdpi/ic_launcher_foreground.png",
+    "maskableIconPadding": 0.25,
+    "splashScreenFadeOutDuration": 300,
+    "signing": {
+        "keystore": "android.keystore",
+        "alias": "heres"
+    },
+    "autoVerify": true,
+    "features": {
+        "playBilling": false,
+        "instantApps": false
+    },
+    "androidManifest": {
+        "allowBackup": true,
+        "cleartextTrafficPermitted": false
+    },
+    "shortcuts": [
+        {
+            "name": "Create Capsule",
+            "shortName": "Create",
+            "description": "Create a new intent capsule",
+            "url": "/create",
+            "scale": 4
+        },
+        {
+            "name": "Dashboard",
+            "shortName": "Dashboard",
+            "description": "View your capsules",
+            "url": "/dashboard",
+            "scale": 4
+        }
+    ],
+    "generatorApp": "bubblewrap",
+    "toolkit": "tlewandowski/bubblewrap",
+    "versionCode": 1,
+    "versionName": "0.1.0"
+}
