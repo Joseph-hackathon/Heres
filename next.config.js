@@ -6,13 +6,14 @@ const nextConfig = {
   },
   // Exclude Android/TWA directories from Next.js build traces
   outputFileTracingExcludes: {
-    include: [
+    '*': [
       '.gradle/**',
       'apk-extract/**',
       'scripts/**',
       'android.keystore',
       'app-release-*.apk',
       'app-release-*.aab',
+      'app-release-*.zip',
     ],
   },
   webpack: (config, { isServer, webpack }) => {
