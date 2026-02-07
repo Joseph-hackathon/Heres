@@ -4,10 +4,14 @@ const nextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
   },
+  // Output standalone build for Docker/Vercel optimization
+  output: 'standalone',
+  // Increase timeout for static page generation
+  staticPageGenerationTimeout: 200,
   // Exclude Android/TWA directories from Next.js build traces
   experimental: {
     outputFileTracingExcludes: {
-      '/**/*': [
+      '*': [
         '.gradle/**',
         'apk-extract/**',
         'scripts/**',
