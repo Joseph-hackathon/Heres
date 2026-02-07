@@ -1,0 +1,15 @@
+# Build artifacts
+apk-extract/
+.gradle/
+android/
+app-release-*.apk
+app-release-*.aab
+app-release-*.zip
+android.keystore
+
+# Scripts
+scripts/
+
+# Misc
+.DS_Store
+*.pem
